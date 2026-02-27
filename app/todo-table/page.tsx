@@ -11,10 +11,16 @@ import SearchTodo from "../search-todo/search-todo";
 const TodoTable = () => {
   const [todo, setTodo] = useState<Todo[]>([]);
   const [updateTodo, setUpdateTodo] = useState<Todo[]>([]);
+
+  //  { ========= REACT QUERY HOOKS ========= } 
   const getTodo = useGetMutation();
   const deleteTodo = useDeleteMutation();
+  //  { ======= HOOK FOR SEARCHING DATA ======== }
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
 
+  //  { ======= THIS HOOK FOR TO GET ALL DATA ========== }
   useEffect(() => {
     const fetchTodos = async () => {
       try {
@@ -33,75 +39,180 @@ const TodoTable = () => {
     fetchTodos();
   }, []);
 
-  const searchData = todo.filter((S) =>
-    S.title.toLowerCase().includes(search.toLowerCase()) ||
-    S.description?.toLowerCase().includes(search.toLowerCase()) ||
-    S.status?.toLowerCase().includes(search.toLowerCase()) ||
-    S.priority?.toLowerCase().includes(search.toLowerCase())
+  //  { =================== FIND DATA BY INPUT SEARCH ============ }
+  const Pending = todo.filter(
+    (t) => t.status?.toLowerCase() === "pending"
+  ).length;
+
+  const complete = todo.filter(
+    (t) => t.status?.toLowerCase() === "completed"
+  ).length;
+
+  //  { ========= FILTER DATA BY SELECT TAGS ============= }
+  const searchData = todo.filter((t) => {
+    const matchesSearch =
+      t.title.toLowerCase().includes(search.toLowerCase()) ||
+      t.description?.toLowerCase().includes(search.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "" ||
+      t.status?.toLowerCase() === statusFilter;
+
+    const matchesPriority =
+      priorityFilter === "" ||
+      t.priority?.toLowerCase() === priorityFilter;
+
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+
+  //  { ================= PAGINATION HOOK ============ }
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  //  { ================ PAGINATION CALCULATION ============== }
+  const totalPages = Math.ceil(searchData.length / itemsPerPage);
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = searchData.slice(
+    startIndex,
+    startIndex + itemsPerPage
   );
 
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure to delete!")) return;
-    setTodo(prev => prev.filter(d => d.id !== id));
+    setTodo((prev) => prev.filter((d) => d.id !== id));
     deleteTodo.mutate(id);
   };
 
   return (
     <div className="min-h-screen w-full md:w-6xl bg-[#0a0a0d] text-gray-200 font-sans p-4 md:p-6">
-
       <div className="flex items-center justify-between mb-6">
         <p className="text-xs tracking-widest uppercase text-gray-400">
           Todo List
         </p>
+            {/* { ================== TODO FORM ============= } */}
         <TodoModal todo={todo} setTodo={setTodo} />
       </div>
 
-      <div className="p-3">
-        <SearchTodo search={search} setSearch={setSearch} />
+      {/* { ================ STATUS CARDS ======================== } */}
+
+      <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+        <div className="bg-gradient-to-br from-[#1a1a1f] to-[#121215] border border-[#2a2a30] rounded-2xl p-5">
+          <p className="text-gray-400 text-xs uppercase">Total Todo</p>
+          <h2 className="text-3xl font-semibold mt-2">
+            {todo.length}
+          </h2>
+        </div>
+
+        <div className="bg-gradient-to-br from-yellow-950/40 to-[#121215] border border-yellow-800/40 rounded-2xl p-5">
+          <p className="text-yellow-400 text-xs uppercase">Pending</p>
+          <h2 className="text-3xl font-semibold text-yellow-300 mt-2">
+            {Pending}
+          </h2>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-950/40 to-[#121215] border border-green-800/40 rounded-2xl p-5">
+          <p className="text-green-400 text-xs uppercase">Complete</p>
+          <h2 className="text-3xl font-semibold text-green-300 mt-2">
+            {complete}
+          </h2>
+        </div>
+
       </div>
 
-      <div className="hidden md:block bg-[#0f0f11] rounded-xl border border-[#2a2a30] overflow-x-auto shadow-lg">
+       {/* [======================== SEARCHING DATA ========================= ] */}
+
+      <div className="p-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+
+        <div className="flex-1">
+          <SearchTodo
+            search={search}
+            setSearch={setSearch}
+          />
+        </div>
+
+        <div className="flex gap-3">
+
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="bg-[#0f0f11] border border-yellow-50 text-gray-300 text-sm rounded-lg px-4 py-4"
+          >
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+          </select>
+
+          <select
+            value={priorityFilter}
+            onChange={(e) => {
+              setPriorityFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="bg-[#0f0f11] border border-yellow-50  text-gray-300 text-sm rounded-lg px-3 py-2"
+          >
+            <option value="">All Priority</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+
+        </div>
+      </div>
+
+       {/* { ========================= TODO TABLE ===================== } */}
+
+     <div className=" md:block bg-[#0f0f11] rounded-xl border border-[#2a2a30] overflow-x-auto">
+
         <table className="min-w-full text-sm">
-          <thead className="bg-[#121214] text-gray-400 uppercase text-xs tracking-wide">
+
+          <thead className="bg-[#121214] text-gray-400 uppercase text-xs">
             <tr>
-              {["Id", "Title", "Description", "Status", "Priority", "Action"].map((h) => (
-                <th key={h} className="text-left px-4 py-3 font-normal">{h}</th>
+              {["Id","Title","Description","Status","Priority","Action"]
+                .map((h) => (
+                <th key={h} className="text-left px-4 py-3 font-normal">
+                  {h}
+                </th>
               ))}
             </tr>
           </thead>
 
           <tbody>
-            {searchData.length === 0 ? (
-              <tr className="border-b border-[#1e1e24]">
-                <td
-                  colSpan={7}
-                  className="px-4 py-6 text-center text-gray-500 text-xs tracking-wide"
-                >
+
+            {paginatedData.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
                   No tasks found
                 </td>
               </tr>
             ) : (
-              searchData.map((t) => (
-                <tr
-                  key={t.id}
-                  className="border-b border-[#1e1e24] hover:bg-[#1a1a1f] transition-all rounded-lg"
-                >
+              paginatedData.map((t) => (
+                <tr key={t.id} className="border-b border-[#1e1e24]">
+
                   <td className="px-4 py-3">{t.id}</td>
-                  <td className="px-4 py-3 font-medium">{t.title}</td>
-                  <td className="px-4 py-3 text-gray-400">{t.description}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-1 rounded-full bg-yellow-950 text-yellow-400 text-xs font-semibold">
-                      {t.status}
-                    </span>
+
+                  <td className="px-4 py-3 font-medium">
+                    {t.title}
+                  </td>
+
+                  <td className="px-4 py-3 text-gray-400">
+                    {t.description}
                   </td>
 
                   <td className="px-4 py-3">
-                    <span className="px-2 py-1 rounded-full bg-gray-800 text-gray-300 text-xs font-semibold">
-                      {t.priority}
-                    </span>
+                    {t.status}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    {t.priority}
                   </td>
 
                   <td className="px-4 py-3 flex gap-2">
+                    {/* { =============== UPDATE TODO MODAL ================= } */}
                     <UpdateTodoModal
                       updateTtodo={t}
                       setUpdateTodo={setUpdateTodo}
@@ -109,89 +220,61 @@ const TodoTable = () => {
 
                     <button
                       onClick={() => handleDelete(t.id)}
-                      className="px-2 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white transition"
+                      className="px-2 py-1 bg-red-600 rounded text-white"
                     >
-                      <Trash size={18} />
+                      <Trash size={18}/>
                     </button>
+
                   </td>
+
                 </tr>
               ))
             )}
+
+            <tr>
+              <td colSpan={6} className="py-4 px-4">
+
+                <div className="flex justify-between items-center">
+
+                  <span className="text-xs text-gray-400">
+                    Page {currentPage} of {totalPages}
+                  </span>
+
+                  <div className="flex gap-2">
+
+                    <button
+                      disabled={currentPage === 1}
+                      onClick={() =>
+                        setCurrentPage((p) => p - 1)
+                      }
+                      className="px-3 py-1 text-xs bg-[#1a1a1f] border border-[#2a2a30] rounded disabled:opacity-40"
+                    >
+                      Prev
+                    </button>
+                     Page: {currentPage} 
+                    <button
+                      disabled={currentPage === totalPages}
+                      onClick={() =>
+                        setCurrentPage((p) => p + 1)
+                      }
+                      className="px-3 py-1 text-xs bg-[#1a1a1f] border border-[#2a2a30] rounded disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+
+                  </div>
+
+                </div>
+
+              </td>
+            </tr>
+
           </tbody>
+
         </table>
+
       </div>
 
-      <div className="md:hidden flex flex-col gap-4">
-        {searchData.length === 0 ? (
-          <p className="text-center text-gray-500 text-xs tracking-wide mt-4">
-            No tasks found
-          </p>
-        ) : (
-          searchData.map((t) => (
-            <div
-              key={t.id}
-              className="bg-gradient-to-br from-[#1a1a1f] to-[#121215] border border-[#2a2a30] rounded-2xl p-5 flex flex-col gap-3 shadow-lg hover:shadow-2xl transition-all"
-            >
-              <div className="flex justify-between">
-                <span className="text-gray-400 text-xs font-semibold uppercase tracking-wide">
-                  ID
-                </span>
-                <span className="text-white font-medium">{t.id}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-gray-400 text-xs font-semibold uppercase tracking-wide">
-                  Title
-                </span>
-                <span className="text-white font-medium">{t.title}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-gray-400 text-xs font-semibold uppercase tracking-wide">
-                  Description
-                </span>
-                <span className="text-gray-300 text-sm">
-                  {t.description}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4 mt-2">
-                <div className="flex flex-col">
-                  <span className="text-gray-400 text-xs font-semibold uppercase">
-                    Status
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-yellow-950 text-yellow-400 text-xs mt-1">
-                    {t.status}
-                  </span>
-                </div>
-
-                <div className="flex flex-col">
-                  <span className="text-gray-400 text-xs font-semibold uppercase">
-                    Priority
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-gray-800 text-gray-200 text-xs mt-1">
-                    {t.priority}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-3">
-                <UpdateTodoModal
-                  updateTtodo={t}
-                  setUpdateTodo={setUpdateTodo}
-                />
-
-                <button
-                  onClick={() => handleDelete(t.id)}
-                  className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white transition flex items-center gap-1"
-                >
-                  <Trash size={18} /> Delete
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 };
